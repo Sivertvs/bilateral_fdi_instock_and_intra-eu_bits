@@ -1,0 +1,830 @@
+## WD
+setwd("C:/Users/Siver/OneDrive - Universitetet i Oslo/Master_Thesis_2020_2021_Orginal/Thesis/tex/fig")
+
+#### Packages ####
+
+packages <- c("tidyverse", "countrycode", "ggplot2", "stargazer", "moments",
+              "readr", "haven", "plm", "WDI", "multiwayvcov", "xtable",
+              "effects", "fixest", "lmtest", "car", "sandwich", "lfe",
+              "bootstrap", "lme4", "broom", "pcse") ## Vector of needed packages
+
+#### Applying a function that installs/loads packages to the vector of packages
+sapply(packages, 
+       FUN = function(x){
+         ## Check if package is installed; if not, install it:
+         if(x %in% rownames(installed.packages()) == FALSE){
+           install.packages(x)
+         }
+         ## load the package:
+         library(x, character.only = TRUE)
+       })
+
+### NB! multiple sheets pasted together#### 
+# Use ctrl+f "sheet" to see cutoffs.
+
+#Sheet #1
+####  Directed Dyads | 2005-2019|  ####
+
+data <-INWARD_FDI_STOCK_USD_BMD4_and_historical_BMD3_series
+
+
+#rename columns
+data <- data %>% rename(REPORTING_COUNTRY = `Reporting country`, PARTNER_COUNTRY = `Partner country/territory`,
+                        FLAG_CODES = `Flag Codes`)
+# Remove useless columns
+data <- data %>% select(COU, REPORTING_COUNTRY, COUNTERPART_AREA, PARTNER_COUNTRY, Year, Value, FLAG_CODES, Flags)
+data <- select(data, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value, Flags, FLAG_CODES)
+
+#remove all identical measures (Inward FDI Stock AustriaAustria) # pre removal: 8,575
+data <- data %>% filter(Value != 0) # 1484 values removed 7,091 tot. (836 NA, and 648 0's by zero observations)
+
+## sort alpabethically
+inward_stock <- with(data, data[order(REPORTING_COUNTRY, PARTNER_COUNTRY), ])
+
+
+##  Slovak Republic til Slovakia
+inward_stock$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", inward_stock$PARTNER_COUNTRY)
+inward_stock$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", inward_stock$REPORTING_COUNTRY)
+## create unique IDs for dyads
+
+inward_stock_ID <- inward_stock %>%  mutate(ID = paste0(Year,"_",REPORTING_COUNTRY,"_",PARTNER_COUNTRY))
+length(unique(inward_stock_ID$ID))
+
+# Organize the dataset
+
+inward_stock_ID <- inward_stock_ID %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
+inward_stock_ID <- inward_stock_ID %>% rename(instock_rep_c1=Value) 
+
+
+# fjerne Austria_austria osv. Bare Austria-Austria og et tilfelle av Ireland_Ireland dette skjedde hos 9 observasjoner
+inward_stock_ID <- inward_stock_ID %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
+
+# er det noen som ikke er unike? Nei
+length(unique(inward_stock_ID$ID))
+
+
+#### KlargjÃ¸re OECD outward stock til merging med inward stock ####
+colnames(OUTWARD_FDI_STOCKFDI_CTRY_ECO_HIST_26032021123928486)
+
+outward_stock <- select(OUTWARD_FDI_STOCKFDI_CTRY_ECO_HIST_26032021123928486, Year, `Reporting country`, `Partner country/territory`, Value, `Flag Codes`, Flags)
+
+#remove NAs # pre removal: 8,611
+outward_stock <- outward_stock %>% filter(Value != 0) #  7,058 tot.
+
+# Sort alphabetically
+outward_stock <- with(outward_stock, outward_stock[order(`Reporting country`,`Partner country/territory`), ])
+
+colnames(outward_stock)
+outward_stock <- outward_stock %>%rename(REPORTING_COUNTRY=`Reporting country`, PARTNER_COUNTRY=`Partner country/territory`)
+
+## redo om Slovak Republic til Slovakia
+outward_stock$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", outward_stock$PARTNER_COUNTRY)
+outward_stock$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", outward_stock$REPORTING_COUNTRY)
+## create unique IDs for dyads
+outward_stock_id <- outward_stock %>%  mutate(ID = paste0(Year,"_",REPORTING_COUNTRY,"_",PARTNER_COUNTRY))
+
+length(unique(outward_stock_id$ID))
+
+# Organize the dataset
+
+colnames(outward_stock_id)
+
+outward_stock_id <- outward_stock_id %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
+outward_stock_id <- outward_stock_id %>% rename(outstock_rep_c1=Value) 
+
+
+# fjerne Austria_austria osv. Bare to tilfeller Ireland_Ireland 
+
+outward_stock_id <- outward_stock_id %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
+
+
+#### Merge inward of outward OECD bilateral FDI ####
+colnames(inward_stock_ID)
+colnames(outward_stock_id)
+
+# 7698 values when only ID is merges but year, RC, PC has duplicate columns
+OECD_stock <- full_join(inward_stock_ID, outward_stock_id, by=c("ID", "Year", "REPORTING_COUNTRY", "PARTNER_COUNTRY"))
+
+length(unique(OECD_stock$ID))
+# Left_join gives 7082 observations while full_join gives 7698 observations
+
+#Create a mergeable BIT_ID
+f = function(x,y,z) paste(sort(c(x,y,z)), collapse="_")
+f = Vectorize(f)
+
+OECD_stock <- OECD_stock %>% 
+  mutate(BIT_ID = f(Year, REPORTING_COUNTRY, PARTNER_COUNTRY))
+
+#### Add UK values to OECD_stock ####
+UK_OUTWARD_2O015 <- read_csv("FDI_OECD/UK_OUTWARD_2O015.csv")
+UK_INWARD_2015 <- read_csv("FDI_OECD/UK_INWARD_2015.csv")
+
+
+# rename columns
+UK_OUTWARD_2O015 <- UK_OUTWARD_2O015   %>% rename(REPORTING_COUNTRY = `Reporting country`, PARTNER_COUNTRY = `Partner country/territory`,
+                                                  FLAG_CODES = `Flag Codes`)
+UK_INWARD_2015 <- UK_INWARD_2015   %>% rename(REPORTING_COUNTRY = `Reporting country`, PARTNER_COUNTRY = `Partner country/territory`,
+                                              FLAG_CODES = `Flag Codes`)
+# Remove useless columns
+UK_OUTWARD_2O015 <- UK_OUTWARD_2O015 %>% select(COU, REPORTING_COUNTRY, COUNTERPART_AREA, PARTNER_COUNTRY, Year, Value, FLAG_CODES, Flags)
+UK_OUTWARD_2O015 <- select(UK_OUTWARD_2O015, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value, Flags, FLAG_CODES)
+UK_INWARD_2015 <- UK_INWARD_2015 %>% select(COU, REPORTING_COUNTRY, COUNTERPART_AREA, PARTNER_COUNTRY, Year, Value, FLAG_CODES, Flags)
+UK_INWARD_2015 <- select(UK_INWARD_2015, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value, Flags, FLAG_CODES)
+
+#remove all identical measures
+UK_OUTWARD_2O015 <- UK_OUTWARD_2O015 %>% filter(Value != 0) # 
+UK_INWARD_2015 <- UK_INWARD_2015 %>% filter(Value != 0) 
+
+UK_OUTWARD_2O015 <- with(UK_OUTWARD_2O015, UK_OUTWARD_2O015[order(REPORTING_COUNTRY, PARTNER_COUNTRY), ])
+UK_OUTWARD_2O015 <- UK_OUTWARD_2O015 %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
+
+UK_INWARD_2015 <- with(UK_INWARD_2015, UK_INWARD_2015[order(REPORTING_COUNTRY, PARTNER_COUNTRY), ])
+UK_INWARD_2015 <- UK_INWARD_2015 %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
+
+# GjÃ¸r om Slovak Republic til Slovenia
+UK_INWARD_2015$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_INWARD_2015$PARTNER_COUNTRY)
+UK_INWARD_2015$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_INWARD_2015$REPORTING_COUNTRY)
+
+UK_OUTWARD_2O015$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_OUTWARD_2O015$PARTNER_COUNTRY)
+UK_OUTWARD_2O015$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_OUTWARD_2O015$REPORTING_COUNTRY)
+
+UK_OUTWARD_2O015 <- UK_OUTWARD_2O015 %>%  mutate(ID = paste0(Year,"_",REPORTING_COUNTRY,"_",PARTNER_COUNTRY))
+
+UK_INWARD_2015 <- UK_INWARD_2015  %>%  mutate(ID = paste0(Year,"_",REPORTING_COUNTRY,"_",PARTNER_COUNTRY))
+
+##
+UK_OUTWARD_2O015 <- UK_OUTWARD_2O015 %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
+UK_OUTWARD_2O015 <- UK_OUTWARD_2O015 %>% rename(outstock_rep_c1=Value)
+
+UK_INWARD_2015 <- UK_INWARD_2015 %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
+UK_INWARD_2015 <- UK_INWARD_2015 %>% rename(instock_rep_c1=Value)
+
+# er det noen som ikke er unike? Nei
+length(unique(UK_INWARD_2015$ID))
+length(unique(UK_OUTWARD_2O015$ID))
+
+UK_stock <- full_join(UK_OUTWARD_2O015, UK_INWARD_2015, by=c("ID", "Year", "REPORTING_COUNTRY", "PARTNER_COUNTRY"))
+
+
+#Create a mergeable BIT_ID
+f = function(x,y,z) paste(sort(c(x,y,z)), collapse="_")
+f = Vectorize(f)
+UK_stock <- UK_stock %>% 
+  mutate(BIT_ID = f(Year, REPORTING_COUNTRY, PARTNER_COUNTRY))
+
+#### Add UK as partner country values to OECD_stock ####
+UK_partner_outflow <- read_csv("FDI_OECD/UK_partner_outflow.csv")
+UK_partner_inflow <- read_csv("FDI_OECD/UK_partner_inflow.csv")
+
+# rename columns
+UK_partner_outflow <- UK_partner_outflow   %>% rename(REPORTING_COUNTRY = `Reporting country`, PARTNER_COUNTRY = `Partner country/territory`,
+                                                      FLAG_CODES = `Flag Codes`)
+UK_partner_inflow <- UK_partner_inflow   %>% rename(REPORTING_COUNTRY = `Reporting country`, PARTNER_COUNTRY = `Partner country/territory`,
+                                                    FLAG_CODES = `Flag Codes`)
+# Remove useless columns
+UK_partner_outflow <- UK_partner_outflow %>% select(COU, REPORTING_COUNTRY, COUNTERPART_AREA, PARTNER_COUNTRY, Year, Value, FLAG_CODES, Flags)
+UK_partner_outflow <- select(UK_partner_outflow, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value, Flags, FLAG_CODES)
+UK_partner_inflow <- UK_partner_inflow %>% select(COU, REPORTING_COUNTRY, COUNTERPART_AREA, PARTNER_COUNTRY, Year, Value, FLAG_CODES, Flags)
+UK_partner_inflow <- select(UK_partner_inflow, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value, Flags, FLAG_CODES)
+
+#remove all identical measures
+UK_partner_outflow <- UK_partner_outflow %>% filter(Value != 0) # 
+UK_partner_inflow <- UK_partner_inflow %>% filter(Value != 0) 
+
+UK_partner_outflow <- with(UK_partner_outflow, UK_partner_outflow[order(REPORTING_COUNTRY, PARTNER_COUNTRY), ])
+UK_partner_outflow <- UK_partner_outflow %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
+
+UK_partner_inflow <- with(UK_partner_inflow, UK_partner_inflow[order(REPORTING_COUNTRY, PARTNER_COUNTRY), ])
+UK_partner_inflow <- UK_partner_inflow %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
+
+# GjÃ¸r om Slovak Republic til Slovenia
+UK_partner_outflow$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_partner_outflow$PARTNER_COUNTRY)
+UK_partner_outflow$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_partner_outflow$REPORTING_COUNTRY)
+
+UK_partner_inflow$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_partner_inflow$PARTNER_COUNTRY)
+UK_partner_inflow$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_partner_inflow$REPORTING_COUNTRY)
+
+#
+UK_partner_outflow <- UK_partner_outflow %>%  mutate(ID = paste0(Year,"_",REPORTING_COUNTRY,"_",PARTNER_COUNTRY))
+
+UK_partner_inflow <- UK_partner_inflow  %>%  mutate(ID = paste0(Year,"_",REPORTING_COUNTRY,"_",PARTNER_COUNTRY))
+
+##
+UK_partner_outflow <- UK_partner_outflow %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
+UK_partner_outflow <- UK_partner_outflow %>% rename(outstock_rep_c1=Value)
+
+UK_partner_inflow <- UK_partner_inflow %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
+UK_partner_inflow <- UK_partner_inflow %>% rename(instock_rep_c1=Value)
+
+# er det noen som ikke er unike? Nei
+length(unique(UK_partner_inflow$ID))
+length(unique(UK_partner_outflow$ID))
+
+UK_stock_partner <- full_join(UK_partner_outflow, UK_partner_inflow, by=c("ID", "Year", "REPORTING_COUNTRY", "PARTNER_COUNTRY"))
+
+#Create a mergeable BIT_ID
+f = function(x,y,z) paste(sort(c(x,y,z)), collapse="_")
+f = Vectorize(f)
+UK_stock_partner <- UK_stock_partner %>% 
+  mutate(BIT_ID = f(Year, REPORTING_COUNTRY, PARTNER_COUNTRY))
+
+
+#### Merge uk_stock with oecd_stock ####
+OECD_stock #7698
+UK_stock #285
+UK_stock_partner #226
+
+UK_stock <- full_join(UK_stock, UK_stock_partner, by=)
+
+OECD_stock <- full_join(OECD_stock, UK_stock, by=)
+length(unique(OECD_stock$ID))
+
+
+#### Gather the pairs to match UNCTAD fdi structure #### Can be skipped
+
+#May take 1-3 minutes
+data <- OECD_stock
+
+for (i in unique(factor(data$BIT_ID))){ 
+  
+  df_temp <- filter(data, BIT_ID==i)  #Filter along unique BIT_ID
+  
+  
+  BIT_ID <- df_temp$BIT_ID[1] #Get the BIT_ID (only once!)
+  A_instock_rep_c1 <- df_temp$instock_rep_c1[1] #Save the  instock for country A
+  A_outstock_rep_c1<- df_temp$outstock_rep_c1[1] #Save the outstock for country A
+  
+  B_instock_rep_c1 <- df_temp$instock_rep_c1[2] #Save the  outstock for country B
+  B_outstock_rep_c2 <- df_temp$outstock_rep_c1[2] #Save the  outstock for country B
+  
+  df_new <- data.frame(BIT_ID,
+                       A_instock_rep_c1,A_outstock_rep_c1,
+                       B_instock_rep_c1,B_outstock_rep_c2) #Should be 1 observation w/ 5 variables
+  
+  if(i==unique(factor(data$BIT_ID)[1])){ #Save as out data frame for first unique BID_ID
+    df_new_out <- df_new
+  }
+  else{
+    df_new_out <- rbind(df_new_out,df_new) #Add new cases and produces final outcome
+  }
+  
+}
+
+df_new_out <- df_new_out %>% rename(OECD_instock_c1=A_instock_rep_c1,
+                                    OECD_outstock_c1=A_outstock_rep_c1, 
+                                    OECD_instock_c2=B_instock_rep_c1, 
+                                    OECD_outstock_c2=B_outstock_rep_c2)
+OECD_stock_mergable <- df_new_out
+
+colnames(OECD_stock_mergable)
+colnames(unctad_fdi)
+
+## merge the data back with year country 1 country 2 for tidyness
+test_stock <- OECD_stock %>% select(BIT_ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY) %>% 
+  rename(country1=REPORTING_COUNTRY, country2=PARTNER_COUNTRY)
+
+OECD_stock_mergable <- full_join(test_stock, OECD_stock_mergable,  by="BIT_ID")
+
+OECD_stock_mergable <- test %>% distinct(BIT_ID, .keep_all=TRUE)
+
+fdi_mergable <- full_join(OECD_stock_mergable, unctad_fdi, by = c("BIT_ID", "Year", "country1", "country2"))
+
+## Check if there are any duplicated values 
+table(duplicated(full_data$BIT_ID)) #DUPLICATES problem
+table(duplicated(OECD_stock_mergable$BIT_ID)) # no duplicates
+table(duplicated(unctad_fdi$BIT_ID)) # no duplicates
+
+## see if the duplicates problem remains when i omit the country1 country 2 merge
+test <- full_join(OECD_stock_mergable, unctad_fdi, by = c("BIT_ID", "Year"))
+table(duplicated(test$BIT_ID)) # no duplicates
+
+#### Create a mean for the FDI values and create directed dyads OECD ####
+table(duplicated(OECD_stock$BIT_ID))
+
+
+#### create directed dyads for full OECD_STOCK dataset ####
+
+OECD_stock_aux <- OECD_stock %>% 
+  select(Year, REPORTING_COUNTRY, PARTNER_COUNTRY, instock_rep_c1, outstock_rep_c1) %>% 
+  rename(partner_instock = instock_rep_c1, 
+         partner_outstock = outstock_rep_c1)
+
+# here we switch reporting/partner country
+OECD_stock_new <- left_join(OECD_stock, 
+                            OECD_stock_aux, 
+                            by = c("REPORTING_COUNTRY" = "PARTNER_COUNTRY", 
+                                   "PARTNER_COUNTRY" = "REPORTING_COUNTRY", 
+                                   "Year"))
+
+
+## Create the mean
+OECD_stock_new <- OECD_stock_new %>% 
+  rowwise() %>% # create mean through rows, not columns
+  mutate(mean_instock = mean(c(instock_rep_c1, partner_outstock), na.rm  = T))
+
+OECD_stock_new <-with(OECD_stock_new, OECD_stock_new[order(REPORTING_COUNTRY, PARTNER_COUNTRY, Year), ])
+
+## How correlated are the instock_c1 and the partner outstock?
+cor(OECD_stock_new$instock_rep_c1, OECD_stock_new$partner_outstock, use = "complete.obs", 
+    method = c("pearson", "kendall", "spearman"))
+# 0.6703195
+cor(OECD_stock_new$instock_rep_c1, OECD_stock_new$partner_outstock, use = "pairwise.complete.obs", 
+    method = c("pearson", "kendall", "spearman"))
+
+
+## unique reporting countries and partner countries
+
+length(unique(OECD_stock_new$REPORTING_COUNTRY))
+length(unique(OECD_stock_new$PARTNER_COUNTRY))
+# Bulgaria, Croatia, Cyprus, Malta, Romania doesn't have reporting observations
+
+## Create instock mean values for non reporting countries by partners values
+
+subset_nonreporting <- OECD_stock_new %>% filter(PARTNER_COUNTRY %in% c("Bulgaria","Croatia", "Cyprus", "Malta", "Romania")) %>%
+  relocate(PARTNER_COUNTRY, .before = REPORTING_COUNTRY) %>% 
+  rename(PARTNER_COUNTRY=REPORTING_COUNTRY, REPORTING_COUNTRY=PARTNER_COUNTRY, instock_rep_c1=outstock_rep_c1,
+         outstock_rep_c1=instock_rep_c1) %>% 
+  rowwise() %>% 
+  mutate(mean_instock = mean(c(instock_rep_c1), na.rm  = T))
+
+subset_nonreporting <- subset_nonreporting %>%  mutate(ID = paste0(Year,"_",REPORTING_COUNTRY,"_",PARTNER_COUNTRY))
+
+## add the newly created values onto the full dataset
+OECD_stock_new #8208
+subset_nonreporting # 1487
+
+OECD_stock_new <- bind_rows(OECD_stock_new, subset_nonreporting) #9,696
+
+length(unique(OECD_stock_new$ID))
+
+## Omit observations with Crotia prior to 2013, Bulgaria Romania prior to 2007
+
+OECD_stock_new <- OECD_stock_new %>% filter(!(REPORTING_COUNTRY=="Croatia" & Year < 2013)) %>% # from 9696 to 9558 
+  filter(!(PARTNER_COUNTRY=="Croatia" & Year < 2013)) #9558 to 9421
+OECD_stock_new <- OECD_stock_new %>% filter(!(REPORTING_COUNTRY %in% c("Bulgaria", "Romania") & Year < 2007|
+                                                PARTNER_COUNTRY %in% c("Bulgaria", "Romania") & Year < 2007)) 
+# from 9695 to 9265 observations.
+
+length(unique(OECD_stock_new$REPORTING_COUNTRY)) #28
+length(unique(OECD_stock_new$PARTNER_COUNTRY)) #28
+
+## create a logged eddition of the mean_instock
+# To correct for skewness in the FDI variables, a logarithmic transformation is applied.
+#Since some of the observations for FDI are negative, we transform both variables using the following procedure
+# Y= ln(x+sqrt(x^2+1))
+
+OECD_stock_new <- OECD_stock_new %>% mutate(log_fdi=log(sqrt(mean_instock^2+1)))
+
+test_OECD <-OECD_stock_new %>% mutate(log_fdi=log(mean_instock + sqrt(mean_instock^2+1))) %>% 
+  mutate(log_fdi_normal=log(sqrt(mean_instock^2+1)))
+
+#Sheet #2
+#### Independent variable BITs ####
+UNCTAD_BITs <- read_delim("BIT_Dataset/UNCTAD_BITs_copy.csv", 
+                          ";", escape_double = FALSE, trim_ws = TRUE)
+
+# Convert dates from ymd to 4-digit year to make it easier to aggregate
+UNCTAD_BITs <- UNCTAD_BITs %>%  rename(into_force=`INTO FORCE`, title =`SHORT TITLE`)
+
+UNCTAD_BITs$into_force <- format(as.Date(UNCTAD_BITs$into_force, format="%d.%m.%Y"), "%Y")
+
+UNCTAD_BITs$TERMINATION <- format(as.Date(UNCTAD_BITs$TERMINATION, format="%d.%m.%Y"), "%Y")
+
+## Set to 2021 if NA
+
+UNCTAD_BITs<- UNCTAD_BITs %>% 
+  replace_na(list(TERMINATION=2020))
+
+## create an case number id equal to DBD
+case_number <- BIT_depth %>% select(title, treatynumber)
+
+UNCTAD_BITs <- left_join(UNCTAD_BITs, case_number, by="title")
+
+table(is.na(UNCTAD_BITs$treatynumber))
+
+UNCTAD_BITs <- UNCTAD_BITs %>% distinct(title, .keep_all=TRUE)
+
+UNCTAD_BITs <- UNCTAD_BITs  %>% 
+  group_by(title) %>% 
+  mutate(Year = list(into_force:TERMINATION)) %>% 
+  unnest(cols = c(Year)) %>% mutate(BIT=1) %>% 
+  relocate(BIT, .before=title) %>% 
+  relocate(Year, .after= title) %>% 
+  select(! c(TERMINATION, STATUS))
+
+### Create BIT_ID order and combine values
+UNCTAD_BITs <- UNCTAD_BITs %>% 
+  mutate(BIT_ID = paste0(Year,"_",Party1,"_",Party2)) %>% 
+  select(!c(Year, Party1, Party2))
+
+## Lagged version
+#mutate( = dplyr::lag(host_property_right,1))
+UNCTAD_BITs_lag <- UNCTAD_BITs
+
+table(is.na(UNCTAD_BITs_lag$BIT_lag))
+table(is.na(UNCTAD_BITs$BIT))
+
+UNCTAD_BITs_lag <- UNCTAD_BITs_lag %>% ungroup %>%  select(BIT_lag, BIT_ID)
+
+####  Create Host_total_BIT variable#### 
+UNCTAD_BITs_aggregated1 <- UNCTAD_BITs %>% 
+  arrange(desc(Year, Party1)) %>% 
+  group_by(Year, Party1) %>%
+  summarise(Host_total_bits=sum(BIT), .groups="keep") %>% 
+  replace_na(list(Host_total_bits=0))
+
+UNCTAD_BITs_aggregated2 <- UNCTAD_BITs %>% 
+  arrange(desc(Year, Party2)) %>% 
+  group_by(Year, Party2) %>%
+  summarise(Host_total_bits_2=sum(BIT), .groups="keep") %>% 
+  rename(Party1=Party2) %>% 
+  replace_na(list(Host_total_bits_2=0))
+
+UNCTAD_BITs_aggregated <- full_join(UNCTAD_BITs_aggregated1, UNCTAD_BITs_aggregated2, by=c("Year", "Party1"))
+
+UNCTAD_BITs_aggregated <- UNCTAD_BITs_aggregated %>% replace_na(list(Host_total_bits_2=0)) %>% 
+  replace_na(list(Host_total_bits=0))
+
+UNCTAD_BITs_aggregated <- UNCTAD_BITs_aggregated %>% mutate(Host_total_BITs=Host_total_bits+Host_total_bits_2) %>% 
+  select(Year, Party1, Host_total_BITs) %>% 
+  replace_na(list(Host_total_BITs=0)) %>% 
+  rename(REPORTING_COUNTRY=Party1)
+
+#Sheet #3
+#### Substantive obligation index |independent 2 ####
+bit_depth_wide <-dataset5_treaty_country_year
+
+# To clean up the data, we first start by omitting all countries not in the EU
+
+bit_depth_wide <- bit_depth_wide %>% filter(party1 %in% c(
+  "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "`Czech Republic`", "Denmark",
+  "Estonia", "Finland", "France", "Germany", "Greece", "Hungary", "Ireland", "Italy", "Latvia", "Lithuania", 
+  "Luxembourg", "Malta", "Netherlands", "Poland", "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden", "United Kingdom")
+  & party2 %in% c(
+    "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "`Czech Republic`", "Denmark",
+    "Estonia", "Finland", "France", "Germany", "Greece", "Hungary", "Ireland", "Italy", "Latvia", "Lithuania", 
+    "Luxembourg", "Malta", "Netherlands", "Poland", "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden", "United Kingdom"))
+
+## filter UK observations >= 2016 #6,978
+
+bit_depth_wide <- bit_depth_wide %>% filter(!(party1=="United Kingdom" & year >= 2016))
+bit_depth_wide <- bit_depth_wide %>% filter(!(party2=="United Kingdom" & year >= 2016))
+
+# reduced to 6,934 observations
+
+# Try to add a dummy coded variable (BIT/NO BIT)
+# If we just add 1 to all relations, when we merge we give all NA 0 for the variable BIT?
+
+bit_depth_wide <- bit_depth_wide %>% mutate(BIT= 1) %>% 
+  relocate(BIT, .before = scope)
+
+is.numeric(bit_depth_wide$BIT) # TRUE
+
+# How do we give the correct merge? 
+# maybe create an alphabethical merge that doesn't consider direction?
+
+# Vectorised function to order and combine values
+f = function(x,y,z) paste(sort(c(x,y,z)), collapse="_")
+f = Vectorize(f)
+
+bit_depth_wide <- bit_depth_wide %>% 
+  mutate(BIT_ID = f(year, party1, party2)) %>% 
+  relocate(BIT_ID, .before = party1)
+
+# rename variables in bit_depth_wide to merge with OECD stock
+colnames(bit_depth_wide)
+bit_depth_wide <- bit_depth_wide %>% 
+  rename(Year=year)
+
+bit_depth_wide_mergeable <-  bit_depth_wide %>% select(-c("ccodecow1","ccodecow2"))
+bit_depth_wide_mergeable <- bit_depth_wide_mergeable %>% rename(country1=party1, country2=party2)
+
+# Remove duplicates
+bit_depth_wide_mergeable <- bit_depth_wide_mergeable %>% distinct(BIT_ID, .keep_all=TRUE)
+
+#### 2018 2019 verdier mangler fordi BIT-dataen ikke strekker seg langt nok. ####
+# Hvor mange avtaler mellom EU-land ble sagt opp i 2018-2019? 
+# Hvor mange observasjoner er det fra 2018-2019
+
+table(full_data$Year=="2019") # 357 observations
+table(full_data$Year=="2018") # 356 observations   713/7313 observations in total
+
+sum(full_data$BIT==1, na.rm = T) #2769 observations where there is a BIT in place
+
+
+## Values to edit 2018 2019 
+excel_edit <- full_data %>% filter(Year %in% c("2017", "2018", "2019"))
+
+excel_edit_2017 <- full_data %>% filter(Year %in% "2017" & BIT %in% "1") # 134 observations with a BIT in 2017
+#excel_edit_2017 <- excel_edit_2017 %>% relocate(BIT, .after= country2)
+
+sum(excel_edit$BIT == 1, na.rm = T) # 134 observations with a BIT in 2017. 
+
+# Need a Luxembourg observations to copy as there is no 2017 value, but a lot of available 2018 2019 data
+luxembour_bulg <- full_data %>% filter(country2 %in% "Luxembourg" & BIT %in% "1")
+
+luxembour_bulg <- luxembour_bulg %>% select(-c("UN_instock_c1":"UN_outstock_c2")) %>% 
+  relocate(BIT, .after =OECD_outstock_c2)
+
+write.csv(luxembour_bulg,"C:/Users/Siver/OneDrive - Universitetet i Oslo/Master_Thesis_2020_2021_Orginal/Thesis/tex/fig//luxembourg_bulgaria.csv",
+          row.names = T)
+
+## make it tidier to use
+excel_edit <- excel_edit %>% select(-c("UN_instock_c1":"UN_outstock_c2")) %>% 
+  relocate(BIT, .after =OECD_outstock_c2)
+
+## sort alpabethically
+excel_edit <- with(excel_edit, excel_edit[order(country1, country2), ])
+
+#### Saving the data frame to code ####
+write.csv(excel_edit,"C:/Users/Siver/OneDrive - Universitetet i Oslo/Master_Thesis_2020_2021_Orginal/Thesis/tex/fig//excel_edit.csv",
+          row.names = T)
+
+#### Retrieve dataset to code 2018 2019 values non existing in the bit_depth dataset ####
+## What we basically do here is to stretch the Dispute by design data two additional years manually
+## But only if the treaty is still active
+
+formated_DBD <- read_delim("Coding_BIT_FDI/excell_edit_formated_copy.csv", 
+                           ";", escape_double = FALSE, trim_ws = TRUE)
+
+sum(formated_DBD$BIT == 1, na.rm = T) #402 values. 268 observations manually coded. 
+
+# remove column1
+formated_DBD <- formated_DBD %>% select(-Column1)
+
+
+#### ####
+# Filter years to avoid duplicates for the bind_rows
+formated_DBD <- formated_DBD %>%  filter(Year >= 2018)
+full_data_DBD <- full_data %>% filter(Year <= 2017)
+
+
+# Needs to have matching amount of columns, add back the UN_stocks
+formated_DBD <- formated_DBD %>%  mutate(UN_instock_c1= NA) %>% 
+  mutate(UN_outstock_c1= NA) %>% 
+  mutate(UN_instock_c2= NA) %>% 
+  mutate(UN_outstock_c2= NA) 
+
+
+DBD_full_data <- bind_rows(full_data_DBD, formated_DBD)
+DBD_full_data <- with(DBD_full_data, DBD_full_data[order(country1, country2, Year), ])
+sum(DBD_full_data$BIT==1, na.rm = T) #3037 observations where there is a BIT in place
+table(duplicated(DBD_full_data$BIT_ID)) # duplicated values
+DBD_full_data <- DBD_full_data %>%  distinct(BIT_ID, .keep_all=T)
+
+
+
+#### Add it to the bit_dept_wide_mergeable for later use on different datasets ####
+
+formated_DBD_for_bit_depth_set <- formated_DBD %>% select(-c("OECD_instock_c1":"OECD_outstock_c2")) %>% 
+  select(-c("UN_instock_c1":"UN_outstock_c2"))
+
+
+bit_depth_wide_mergeable ## A tibble: 3,467 x 123
+formated_DBD_for_bit_depth_set # A tibble: 1,064 x 123
+BIT_depth <- bind_rows(bit_depth_wide_mergeable, formated_DBD_for_bit_depth_set)
+
+table(duplicated(BIT_depth$BIT_ID))
+
+## Filter to add onto main frame without too many variables
+subset_depth <- BIT_depth %>% select(BIT_ID, treatynumber, scope, substantive, flexibility, precision, delegation)
+
+#Sheet #4
+#### Control variables ####
+
+WDI_df<-WDI(
+  country = c("AT","BE", "DK", "BG", "EE", "FI", "FR", "GR",
+              "IE", "IT", "HR", "CY", "LV", "GB", "LT", "LU",
+              "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", 
+              "SE", "CZ", "DE", "HU"),
+  indicator = c("NY.GDP.MKTP.KD","NY.GDP.PCAP.KD","NY.GDP.DEFL.KD.ZG") ,
+  start = 2004,
+  end = 2019,
+  language = "en"
+)
+
+WDI_df <- as_tibble(WDI_df)
+
+WDI_df <- WDI_df %>% arrange(country,year) %>% 
+  group_by(country) %>%
+  mutate(gdp_lag = dplyr::lag(NY.GDP.MKTP.KD,1)) %>% 
+  mutate(gdppc_lag = dplyr::lag(NY.GDP.PCAP.KD,1)) %>% 
+  mutate(inflation_lag=dplyr::lag(NY.GDP.DEFL.KD.ZG,1))
+
+WDI_df <- WDI_df %>% mutate(gdp_log_lag=log(gdp_lag)) %>% 
+  mutate(gdppc_log_lag=log(gdppc_lag)) %>% 
+  mutate(inflation_lag_log=log(sqrt(inflation_lag^2+1)))
+
+WDI_df <- WDI_df %>% mutate(gwn=countrycode(iso2c, origin = "iso2c", destination = "gwn")) %>% 
+  relocate(gwn, .after=year) 
+
+
+WDI_df <- WDI_df %>% select(!c("iso2c", "country"))
+WDI_df <- rename(WDI_df, Year=year)
+
+WDI_df <- WDI_df %>% mutate(gwn_host=gwn) %>% 
+  mutate(gwn_source=gwn) %>% 
+  relocate(gwn_host, .after=Year) %>% 
+  relocate(gwn_source, .before=NY.GDP.MKTP.KD)
+
+WDI_host <- WDI_df %>% ungroup() %>%
+  select(!(c(country, gwn_source, gwn,NY.GDP.MKTP.KD, NY.GDP.PCAP.KD, NY.GDP.DEFL.KD.ZG, gdppc_lag))) %>% 
+  rename(host_gdp_log_lag=gdp_log_lag, host_gdppc_log_lag=gdppc_log_lag, host_gdp_lag=gdp_lag)
+
+WDI_source <- WDI_df %>%
+  ungroup() %>%
+  select(c(Year, gwn_source,gdp_lag ,gdp_log_lag, gdppc_log_lag)) %>% 
+  rename(source_gdp_log_lag=gdp_log_lag, source_gdppc_log_lag=gdppc_log_lag, source_gdp_lag=gdp_lag)
+
+
+
+####  find the relative difference between property rights  in a dyad ####
+# country 1 / country 2
+economicdata2005_2018 <- read_delim("theIPE_dataverse_files/economicdata2005-2018.csv", 
+                                    ";", escape_double = FALSE, trim_ws = TRUE)
+colnames(economicdata2005_2018)
+prop_right <- economicdata2005_2018 %>% select(Year, ISO_Code, Countries, `Protection of property rights`) %>% 
+  rename(property_right=`Protection of property rights`)
+
+prop_right <- prop_right %>% filter(Countries %in% c(
+  "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czech Republic", "Denmark",
+  "Estonia", "Finland", "France", "Germany", "Greece", "Hungary", "Ireland", "Italy",
+  "Latvia", "Lithuania", "Luxembourg", "Malta", "Netherlands", "Poland", "Portugal", 
+  "Romania", "Slovak Republic", "Slovenia", "Spain", "Sweden", "United Kingdom"))
+unique(prop_right$Countries)
+
+prop_right <- prop_right %>%
+  mutate(gwn_host=countrycode(ISO_Code, origin = "iso3c", destination ="gwn")) %>% 
+  mutate(gwn_source=gwn_host)
+
+table(is.na(prop_right$property_right))
+
+prop_right_host <- prop_right %>%
+  group_by(Year, gwn_host) %>% 
+  select(Year, gwn_host, property_right) %>% 
+  rename(host_property_right=property_right)
+
+prop_right_source <- prop_right %>%
+  group_by(Year, gwn_source) %>%
+  select(Year, gwn_source, property_right) %>% 
+  rename(source_property_right=property_right)
+
+table(is.na(prop_right_host$host_property_right))
+table(is.na(prop_right_source$source_property_right))
+
+#### Double taxation treaties ####
+## Set to 2021 if NA
+DTT <- read_delim("DTT_dataset/DTT_csv.csv", 
+                  ";", escape_double = FALSE, trim_ws = TRUE)
+
+colnames(DTT)
+
+DTT <- DTT %>% 
+  replace_na(list(termination=2020))
+#unique ID
+DTT <- DTT %>% mutate(title = paste0(party1,"_",party2)) %>% 
+  relocate(title, .before=party1)
+
+table(duplicated(DTT$title))
+
+# remove those without treaties
+DTT <- DTT %>% drop_na(into_force)
+
+table(is.na(DTT$into_force))
+
+# Gwn code
+DTT <- DTT  %>% mutate(gwn_host=countrycode(party1, origin = "country.name", destination ="gwn")) %>% 
+  mutate(gwn_source=countrycode(party2, origin = "country.name", destination ="gwn"))
+
+
+#stretch
+
+DTT <- DTT  %>% 
+  group_by(title) %>% 
+  mutate(Year = list(into_force:termination)) %>% 
+  unnest(cols = c(Year)) %>% mutate(DTT=1) %>% 
+  relocate(DTT, .before=title) %>% 
+  relocate(Year, .after= title)
+
+#reduce years
+DTT <- DTT  %>% filter(Year >=2004)
+
+
+# create merge-ID
+f = function(x,y,z) paste(sort(c(x,y,z)), collapse="_")
+f = Vectorize(f)
+
+DTT <- DTT  %>%
+  mutate(gwn_year_id=f(Year,gwn_host, gwn_source))
+
+merge_dtt <- DTT %>% ungroup() %>% 
+  select(gwn_year_id, DTT)
+
+#### Merging variables ####
+OECD # Dependent variable
+UNCTAD_BITs # Independent variable
+BIT_depth # control: depth of BITs
+
+OECD <- left_join(test_OECD, UNCTAD_BITs, by="BIT_ID") 
+
+OECD <- OECD %>% select(!c(instock_rep_c1, outstock_rep_c1, partner_instock, partner_outstock))
+
+table(is.na(OECD$BIT)) # 4793 existing treaties and 4472 non existing
+
+OECD <- OECD %>% # set all NA to 0 to show no treaty is in place
+  replace_na(list(BIT=0))  # We now have a binary independent variable to show whether there's a BIT
+
+## Merge Depth of treaties with main frame
+OECD <- left_join(OECD, subset_depth, by= c("BIT_ID", "treatynumber"))
+
+
+OECD <- OECD %>% mutate(gwn_host=countrycode(REPORTING_COUNTRY, origin = "country.name", destination = "gwn")) %>% 
+  relocate(gwn_host, .after=Year) %>% 
+  mutate(gwn_source=countrycode(PARTNER_COUNTRY, origin="country.name", destination = "gwn")) %>% 
+  relocate(gwn_source, .before =REPORTING_COUNTRY)
+
+# create a gwn with year
+f = function(x,y,z) paste(sort(c(x,y,z)), collapse="_")
+f = Vectorize(f)
+
+OECD <- OECD %>%
+  mutate(gwn_year_id=f(Year,gwn_host, gwn_source))
+
+
+#Sheet #5
+#### MERGESHEET ####
+
+#### Economic
+
+OECD <- left_join(OECD, WDI_host, by=c("Year", "gwn_host"))
+
+OECD <- left_join(OECD, WDI_source, by=c("Year", "gwn_source"))
+
+
+# ln_market_size_log, gdp host + gdp source, log, lag
+OECD <- OECD %>% mutate(market_size_log=host_gdp_lag+source_gdp_lag) %>% 
+  mutate(ln_market_size_log=log(market_size_log))
+
+## relative_market_size, frac(gdp host/gdp source) lag
+OECD <- OECD %>% mutate(relative_market_size=host_gdp_lag/source_gdp_lag)
+
+## Host country total amount of BITs
+OECD <- left_join(OECD, UNCTAD_BITs_aggregated, by=c("Year", "REPORTING_COUNTRY"))
+
+OECD <- OECD %>% relocate(Host_total_BITs, .after=delegation) %>% 
+  replace_na(list(Host_total_BITs=0))
+
+## Dummy coded DTT
+OECD <- left_join(OECD, merge_dtt, by= "gwn_year_id")
+
+table(is.na(OECD$DTT)) #7839 observations with a DTT in place, 1426 observations without DTT
+
+OECD <- OECD %>% # set all NA to 0 to show no DTT is in place
+  replace_na(list(DTT=0))
+
+# A variable for property rights 2005-2018
+
+OECD <- left_join(OECD, prop_right_host, by= c("Year", "gwn_host"))  
+OECD <- left_join(OECD, prop_right_source, by= c("Year", "gwn_source"))
+
+table(is.na(OECD$host_property_right)) # 663 2019 values missing
+table(is.na(OECD$source_property_right))
+
+# lag variables
+
+OECD <- OECD %>% 
+  arrange(REPORTING_COUNTRY, PARTNER_COUNTRY, Year) %>% 
+  group_by(REPORTING_COUNTRY) %>%
+  mutate(host_property_right_lag = dplyr::lag(host_property_right,1))
+
+table(is.na(OECD$host_property_right_lag))
+
+OECD <- OECD %>%
+  arrange(PARTNER_COUNTRY, REPORTING_COUNTRY, Year) %>%  
+  group_by(PARTNER_COUNTRY) %>%
+  mutate(source_property_right_lag = dplyr::lag(source_property_right,1))
+
+OECD <- OECD %>% arrange(REPORTING_COUNTRY, PARTNER_COUNTRY , Year)
+
+## relative difference in property rights
+OECD <- OECD %>% mutate(relative_property_rights_lag=host_property_right_lag/source_property_right_lag)
+table(is.na(OECD$relative_property_rights_lag))
+
+OECD <- OECD %>%
+  replace_na(list(substantive=0)) %>%
+  mutate(substantive=ifelse(substantive==0 & BIT==1,NA,substantive))
+
+##
+post2004_sample <- OECD %>% filter(c(gwn_host %in% c("352", "316", "366", "310", "367", "368",
+                                                     "338", "290", "317", "349", "355", "360",
+                                                     "344")))
+table(unique(post2004_sample$gwn_host))
+table(unique(post2004_sample$REPORTING_COUNTRY))
+table(post2004_sample$BIT)
+
+#### Remove countries with high phantom investments ####
+# Ireland, netherland, Luxembourg
+oecd_haven <- OECD %>% filter(!(gwn_host %in% c("210","212","205"))) %>%  
+  filter(!(gwn_source %in% c("210","212","205")))
+
+
