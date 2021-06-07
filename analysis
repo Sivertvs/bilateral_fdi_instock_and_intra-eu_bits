@@ -1,0 +1,1057 @@
+#Sheet #6
+##### Main analysis ####
+bivariate_BIT <- plm(log_fdi~BIT, data = OECD,
+                     index = "gwn_host",
+                     model = "within")
+summary(bivariate_BIT)
+vcovbivariate_BIT <- plm::vcovHC(bivariate_BIT, cluster = "group", type = "HC3", method= "arellano")
+robust_se_bivariate <- sqrt(diag(vcovbivariate_BIT))
+
+model1_DFE <- plm(log_fdi~ BIT +
+                    host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                    ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                  data= OECD,
+                  index = "gwn_host",
+                  model = "within")
+summary(model1_DFE)
+vcov1DE <- plm::vcovHC(model1_DFE, cluster = "group", type = "HC3", method= "arellano")
+robust_se_1 <- sqrt(diag(vcov1DE))
+
+model2_YFE <- plm(log_fdi~ BIT +
+                    host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                    ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                  data= OECD,
+                  index = "Year",
+                  model = "within",
+                  effect = "time")
+
+summary(model2_YFE)
+vcov_2YFE <- plm::vcovHC(model2_YFE, cluster = "time", type= "HC3")
+robust_se_2 <- sqrt(diag(vcov_2YFE))
+
+
+model4_DDYFE<- plm(log_fdi~ BIT +
+                     host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                     ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                   data= OECD,
+                   index = c("gwn_id_directed"),
+                   model = "within")
+summary(model4_DDYFE)
+vcov_3YH <- plm::vcovHC(model4_DDYFE, cluster = c("group"), type="HC3", method="arellano")
+robust_se_3 <- sqrt(diag(vcov_3YH))
+
+model_c <- lm(log_fdi~ BIT +
+                host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+                Host_total_BITs + as.factor(gwn_host)+as.factor(Year), data = OECD)
+summary(model_c)
+vcov_c <- cluster.vcov(model_c, cbind(OECD$gwn_host, OECD$Year))
+model_c$vcov_ <- vcov_c
+robust_seC<- sqrt(diag(model_c$vcov_))
+
+
+stargazer(list(bivariate_BIT, model1_DFE, model2_YFE, model_c, model4_DDYFE),
+          se=list(robust_se_bivariate, robust_se_1, robust_se_2, robust_seC, robust_se_3),
+          type="latex",
+          out="figures/full_BIT.tex",
+          title="Baseline models BITs",
+          dep.var.labels = "FDI instock",
+          covariate.labels = c ("BIT",
+                                "GDP Host, log t-1",
+                                "GDP per capita host, log t-1",
+                                "Inflation t-1",
+                                "GDP Source, log t-1",
+                                "Market size, log t-1",
+                                "Market ratio t-1",
+                                "DTT",
+                                "Host total BITs",
+                                "Property right ratio t-1"),
+          omit = c("Constant", "as.factor"),
+          omit.stat=c("ser","f"),
+          add.lines =list(c("FE","Host", "Host", "No", "Host", "Dyad"),
+                          c("Year FE","No", "No" , "Yes", "Yes", "No"),
+                          c("Clustered SE","Yes", "Yes", "Yes", "Yes", "Yes")))
+
+#### post 2004 sampling ####
+
+post2004_model1<- plm(log_fdi~ BIT +
+                        host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                        ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                      data= post2004_sample,
+                      index = c("gwn_host"),
+                      model = "within")
+summary(post2004_model1)
+post_v1 <- plm::vcovHC(post2004_model1, cluster = c("group"), type="HC3", method="arellano")
+l2004_se1 <- sqrt(diag(post_v1))
+
+post2004_model2<- plm(log_fdi~ BIT +
+                        host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                        ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                      data= post2004_sample,
+                      index = c("Year"),
+                      model = "within")
+summary(post2004_model2)
+post_v2 <- plm::vcovHC(post2004_model2, cluster = c("time"), type="HC3", method="arellano")
+l2004_se2 <- sqrt(diag(post_v2))
+
+model2004_lm <- lm(log_fdi~ BIT +
+                     host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                     ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+                     Host_total_BITs + as.factor(gwn_host)+ as.factor(Year),
+                   data = post2004_sample)
+summary(model2004_lm)
+vcov_model2004 <- cluster.vcov(model2004_lm, cbind(post2004_sample$gwn_host, post2004_sample$Year))
+model2004_lm$vcov <- vcov_model2004
+robust_se2004<- sqrt(diag(model2004_lm$vcov))
+
+
+post2004_modelx<- plm(log_fdi~ BIT +
+                        host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                        ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                      data= post2004_sample,
+                      index = c("gwn_id_directed"),
+                      model = "within")
+summary(post2004_modelx)
+post_vx <- plm::vcovHC(post2004_modelx, cluster = c("group"), type="HC3", method="arellano")
+l2004_se_x <- sqrt(diag(post_vx))
+
+
+stargazer(list(post2004_model1, post2004_model2,model2004_lm ,post2004_modelx),
+          se=list(l2004_se1, l2004_se2, robust_se2004, l2004_se_x),
+          type="latex",
+          out="figures/2004_BIT.tex",
+          title="Post 2004 Members as hosts",
+          dep.var.labels = "Bilateral FDI",
+          covariate.labels = c("BIT",
+                               "GDP Host, log t-1",
+                               "GDP per capita host, log t-1",
+                               "Inflation t-1",
+                               "GDP Source, log t-1",
+                               "Market size, log t-1",
+                               "Market ratio t-1",
+                               "DTT",
+                               "Host total BITs",
+                               "Property right ratio t-1"),
+          omit = c("Constant", "as.factor"),
+          omit.stat=c("ser","f"),
+          add.lines =list(c("FE", "Host", "No","Host", "Dyad"),
+                          c("Year FE", "No", "Yes","Yes", "No")))
+
+#### Baseline treaty depth ####
+bivariate_subs <- plm(log_fdi~substantive, data = OECD,
+                      index = "gwn_host",
+                      model = "within")
+summary(bivariate_subs)
+vcovbivariate_subs <- plm::vcovHC(bivariate_subs, cluster = "group", type = "HC3", method= "arellano")
+robust_se_subs <- sqrt(diag(vcovbivariate_subs))
+
+model1_depth_DD <-plm(log_fdi~ substantive+
+                        host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                        ln_market_size_log +relative_market_size+relative_property_rights_lag+Host_total_BITs +DTT,
+                      data=OECD,
+                      index = "gwn_host",
+                      model = "within")
+summary(model1_depth_DD)
+SE_4<- plm::vcovHC(model1_depth_DD, cluster = "group", type= "HC3")
+subs_se1 <- sqrt(diag(SE_4))
+
+
+model2_depth_Y <-plm(log_fdi~ substantive+
+                       host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                       ln_market_size_log +relative_market_size+relative_property_rights_lag+Host_total_BITs +DTT,
+                     data=OECD,
+                     index = "Year",
+                     model = "within",
+                     effect = "time")
+summary(model2_depth_Y)
+SE_5<- plm::vcovHC(model2_depth_Y, cluster = "time", type= "HC3")
+subs_se2 <- sqrt(diag(SE_5))
+
+modelsubst_lm <- lm(log_fdi~  substantive+
+                      host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                      ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+                      Host_total_BITs + as.factor(gwn_host)+ as.factor(Year), data = OECD)
+summary(modelsubst_lm)
+vcov_subst <- cluster.vcov(modelsubst_lm, cbind(OECD$gwn_host, OECD$Year))
+modelsubst_lm$vcov <- vcov_subst
+robust_sesubst<- sqrt(diag(modelsubst_lm$vcov))
+
+
+modelx_depth_DD <-plm(log_fdi~ substantive+
+                        host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                        ln_market_size_log +relative_market_size+relative_property_rights_lag+Host_total_BITs +DTT,
+                      data=OECD,
+                      index = "gwn_id_directed",
+                      model = "within")
+summary(modelx_depth_DD)
+SE_f<- plm::vcovHC(modelx_depth_DD, cluster = "group", type= "HC3")
+subs_se4 <- sqrt(diag(SE_f))
+
+
+
+
+stargazer(list(bivariate_subs, model1_depth_DD, model2_depth_Y, modelsubst_lm,modelx_depth_DD),
+          se=list(robust_se_subs, subs_se1, subs_se2, robust_sesubst, subs_se4),
+          out="figures/provisions_table.tex",
+          type="latex",
+          title="Treaty provisions",
+          covariate.labels = c ("Substantive obligation",
+                                "GDP Host, log t-1",
+                                "GDP per capita host, log t-1",
+                                "Inflation t-1",
+                                "GDP Source, log t-1",
+                                "Market size, log t-1",
+                                "Market ratio t-1",
+                                "DTT",
+                                "Host total BITs",
+                                "Property right ratio t-1"),
+          omit = c("Constant", "as.factor"),
+          omit.stat=c("ser", "f"),
+          dep.var.labels = "Bilateral FDI",
+          add.lines =list(c("FE","Host", "Host", "No", "Host","Dyad" ),
+                          c("Year FE","No", "No", "Yes", "Yes","No")))
+
+#Sheet #7
+#### Robustnesstests ####
+
+# parsimonous buildup with host FE
+
+parsi_1 <- plm(log_fdi~ BIT +
+                 host_gdp_log_lag + host_gdppc_log_lag,
+               data= OECD,
+               index = "gwn_host",
+               model = "within")
+summary(parsi_1)
+parsi_1_se <- plm::vcovHC(parsi_1, cluster = "group", type = "HC3", method= "arellano")
+e_se_1 <- sqrt(diag(parsi_1_se))
+
+
+parsi_2 <- plm(log_fdi~ BIT +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag,
+               data= OECD,
+               index = "gwn_host",
+               model = "within")
+summary(parsi_2)
+parsi_2_se <- plm::vcovHC(parsi_2, cluster = "group", type = "HC3", method= "arellano")
+e_se_2 <- sqrt(diag(parsi_2_se))
+
+parsi_3 <- plm(log_fdi~ BIT +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                 ln_market_size_log +relative_market_size,
+               data= OECD,
+               index = "gwn_host",
+               model = "within")
+summary(parsi_3)
+parsi_3_se <- plm::vcovHC(parsi_3, cluster = "group", type = "HC3", method= "arellano")
+e_se_3 <- sqrt(diag(parsi_3_se))
+
+parsi_4 <- plm(log_fdi~ BIT +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                 ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+               data= OECD,
+               index = "gwn_host",
+               model = "within")
+summary(parsi_4)
+parsi_4_se <- plm::vcovHC(parsi_4, cluster = "group", type = "HC3", method= "arellano")
+e_se_4 <- sqrt(diag(parsi_4_se))
+
+
+stargazer(list(parsi_1, parsi_2, parsi_3, parsi_4),
+          se=list(e_se_1, e_se_2,e_se_3, e_se_4),
+          type="latex",
+          out="figures/buildup_BIT.tex",
+          title="Parsimonious build ",
+          dep.var.labels = "FDI instock",
+          covariate.labels = c ("BIT",
+                                "GDP Host, log t-1",
+                                "GDP per capita host, log t-1",
+                                "Inflation t-1",
+                                "GDP Source, log t-1",
+                                "Market size, log t-1",
+                                "Market ratio t-1",
+                                "DTT",
+                                "Host total BITs",
+                                "Property right ratio t-1"),
+          omit.stat=c("ser", "f"),
+          add.lines =list(c("FE", "Host", "Host", "Host", "Host"),
+                          c("Clustered SE", "Yes", "Yes", "Yes", "Yes")))
+#### Robustnesstest: BITs lagged ####
+
+bit_lag1 <- plm(log_fdi~ BIT_lag +
+                  host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                  ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                data= oecd_prep,
+                index = "gwn_host",
+                model = "within")
+summary(bit_lag1)
+vcov1DE <- plm::vcovHC(bit_lag1, cluster = "group", type = "HC3", method= "arellano")
+robust_se_1 <- sqrt(diag(vcov1DE))
+
+bit_lag2 <- plm(log_fdi~ BIT_lag +
+                  host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                  ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                data= oecd_prep,
+                index = "Year",
+                model = "within",
+                effect = "time")
+
+summary(bit_lag2)
+vcov_2YFE <- plm::vcovHC(bit_lag2, cluster = "time", type= "HC3")
+robust_se_2 <- sqrt(diag(vcov_2YFE))
+
+
+bit_lag3<- plm(log_fdi~ BIT_lag +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                 ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+               data= oecd_prep,
+               index = c("gwn_id_directed"),
+               model = "within")
+summary(bit_lag3)
+vcov_3YH <- plm::vcovHC(bit_lag3, cluster = c("group"), type="HC3", method="arellano")
+robust_se_3 <- sqrt(diag(vcov_3YH))
+
+
+bit_lag4 <- lm(log_fdi~ BIT_lag +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                 ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+                 Host_total_BITs + as.factor(gwn_host)+as.factor(Year), data = oecd_prep)
+summary(bit_lag4)
+vcov_c <- cluster.vcov(bit_lag4, cbind(oecd_prep$gwn_host, oecd_prep$Year))
+bit_lag4$vcov_ <- vcov_c
+robust_seC<- sqrt(diag(bit_lag4$vcov_))
+
+
+stargazer(list(bit_lag1, bit_lag2, bit_lag4 ,bit_lag3),
+          se=list(robust_se_1, robust_se_2, robust_seC, robust_se_3),
+          type="text",
+          out="figures/BIT_lagged.tex",
+          title="Lagged BIT variable",
+          dep.var.labels = "FDI instock",
+          covariate.labels = c ("BIT, t-1",
+                                "GDP Host, log t-1",
+                                "GDP per capita host, log t-1",
+                                "Inflation t-1",
+                                "GDP Source, log t-1",
+                                "Market size, log t-1",
+                                "Market ratio t-1",
+                                "DTT",
+                                "Host total BITs",
+                                "Property right ratio t-1"),
+          omit = c("Constant", "as.factor"),
+          omit.stat="ser",
+          add.lines =list(c("FE", "Host", "No", "Host", "Dyad"),
+                          c("Year FE", "No" , "Yes", "Yes", "No"),
+                          c("Clustered SE", "Yes", "Yes", "Yes", "Yes")))
+#### Robustnesstest haven ####
+haven1 <- plm(log_fdi~ BIT +
+                host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+              data= oecd_haven,
+              index = "gwn_host",
+              model = "within")
+summary(haven1)
+vcov1DE <- plm::vcovHC(haven1, cluster = "group", type = "HC3", method= "arellano")
+robust_se_1 <- sqrt(diag(vcov1DE))
+
+haven2 <- plm(log_fdi~ BIT +
+                host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+              data= oecd_haven,
+              index = "Year",
+              model = "within",
+              effect = "time")
+
+summary(haven2)
+vcov_2YFE <- plm::vcovHC(haven2, cluster = "time", type= "HC3")
+robust_se_2 <- sqrt(diag(vcov_2YFE))
+
+
+haven3<- plm(log_fdi~ BIT +
+               host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+               ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+             data= oecd_haven,
+             index = c("gwn_id_directed"),
+             model = "within")
+summary(haven3)
+vcov_3YH <- plm::vcovHC(haven3, cluster = c("group"), type="HC3", method="arellano")
+robust_se_3 <- sqrt(diag(vcov_3YH))
+
+
+haven4 <- lm(log_fdi~ BIT +
+               host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+               ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+               Host_total_BITs + as.factor(gwn_host)+as.factor(Year), data = oecd_haven)
+summary(haven4)
+haven_se <- cluster.vcov(haven4, cbind(oecd_haven$gwn_host, oecd_haven$Year))
+haven4$vcov <- haven_se
+haven_seC<- sqrt(diag(haven4$vcov))
+
+
+stargazer(list(haven1, haven2, haven4 ,haven3),
+          se=list(robust_se_1, robust_se_2, haven_seC, robust_se_3),
+          type="latex",
+          out="figures/haven_test.tex",
+          title="Omitting Phantom Investments",
+          dep.var.labels = "FDI instock",
+          covariate.labels = c ("BIT",
+                                "GDP Host, log t-1",
+                                "GDP per capita host, log t-1",
+                                "Inflation t-1",
+                                "GDP Source, log t-1",
+                                "Market size, log t-1",
+                                "Market ratio t-1",
+                                "DTT",
+                                "Host total BITs",
+                                "Property right ratio t-1"),
+          omit = c("Constant", "as.factor"),
+          omit.stat=c("ser", "f"),
+          add.lines =list(c("FE", "Host", "No", "Host", "Dyad"),
+                          c("Year FE", "No" , "Yes", "Yes", "No"),
+                          c("Clustered SE", "Yes", "Yes", "Yes", "Yes")))
+
+
+
+
+
+
+ggplot(data=oecd_prep, aes(x=BIT, y=log_fdi, group=c(BIT)))+
+  coord_cartesian(ylim = c(0,12))+  
+  #For ylim, specify the range of your DV (in our case, 0-4)
+  geom_boxplot(size=2, aes(color=BIT))+
+  ylab("FDI")+
+  xlab("BIT")+
+  ggtitle("Boxplot FDI BITs")+
+  theme_bw()+ 
+  theme(panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank())+
+  scale_fill_grey()+
+  ggsave("figures/boxplot_FDI_BIT.png", width = 8, height = 5)
+
+?ggplot
+
+
+ggplot(data=subset(OECD, !is.na(log_fdi)), aes(x=log_fdi)) + 
+  geom_histogram(aes(y=..count..), binwidth=.5, colour="black", fill="white")
+ggsave("figures/distribution_FDI.png", width = 8, height = 5)
+
+ggplot(data=OECD, aes(x=mean_instock)) + 
+  geom_histogram(aes(y=..count..), binwidth=.5, colour="black", fill="white")
+
+hist(OECD$mean_instock)
+
+min(OECD$mean_instock)
+
+
+
+
+appendix_DFE_1 <- plm(log_fdi~ BIT +
+                        host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                        ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                      data= oecd_prep,
+                      index = c("gwn_id_directed", "Year"),
+                      model = "within",
+                      effect = "twoways")
+summary(appendix_DFE_1)
+appendixvcov1 <- plm::vcovHC(appendix_DFE_1, cluster = "group", type = "HC3", method= "arellano")
+appendix_se_1 <- sqrt(diag(appendixvcov1))
+
+appendix_2<- plm(log_fdi~ BIT +
+                   host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                   ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                 data= oecd_prep,
+                 index = c("gwn_id_directed"),
+                 model = "within")
+summary(appendix_2)
+appendixvcov2 <- plm::vcovHC(appendix_2, cluster = "group", type = "HC3", method= "arellano")
+appendix_se_2 <- sqrt(diag(appendixvcov2))
+
+appendix_3<- plm(log_fdi~ BIT +
+                   host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                   ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                 data= oecd_prep,
+                 index = c("gwn_id_nondirected"),
+                 model = "within")
+summary(appendix_3)
+appendixvcov3 <- plm::vcovHC(appendix_3, cluster = "group", type = "HC3", method= "arellano")
+appendix_se_3 <- sqrt(diag(appendixvcov2))
+
+
+stargazer(list(appendix_3, appendix_2, appendix_DFE_1),
+          se=list(appendix_se_3,appendix_se_2, appendix_se_1),
+          type="latex",
+          out="figures/dyad_FE_table.tex",
+          title="Dyad estimated effects",
+          dep.var.labels = "FDI instock",
+          covariate.labels = c ("BIT",
+                                "GDP Host, log t-1",
+                                "GDP per capita host, log t-1",
+                                "Inflation t-1",
+                                "GDP Source, log t-1",
+                                "Market size, log t-1",
+                                "Market ratio t-1",
+                                "DTT",
+                                "Host total BITs",
+                                "Property right ratio t-1"),
+          add.lines =list(c("Dyad FE", "Nondirected", "Directed", "Directed"),
+                          c("Year FE", "No" , "No", "Yes")))
+### Vif tests
+vif <- vif(model_empty_BIT)
+### dbw
+lmtest::dwtest(model_empty_BIT)
+bptest(model_empty_BIT)
+
+
+#### Jackknife ####
+jk <- OECD %>% drop_na(log_fdi)
+
+
+x <- jk$log_fdi
+theta <- function(x){mean(x)}
+results <- jackknife(x,theta)
+
+mean(OECD$log_fdi, na.rm=T)
+##
+cv <- array(1:8899)
+for(j in 1:8899){
+  y<-x[c(-j)]
+  M=mean(y)
+  V=var(y)
+  cv[j]=sqrt(V)/M}
+
+# jackknife estimate of CV
+jcv=mean(cv)
+jv=(length(x)-1)^2*var(cv)/length(x)
+
+#95% CI
+LL=jcv-1.96*sqrt(jv) #lower limit
+UL=jcv+1.96*sqrt(jv) #upper limit
+#estimated CV from x
+cvp=sqrt(var(x))/mean(x)
+bias=(length(x)-1)*(jcv-cvp)
+
+
+
+##### ####
+modelfunction <- function(data){
+  mod <- lm(log_fdi~ BIT +
+              host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+              ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs, data=data)
+  mod <- coef(mod)[2]
+  return(mod)
+}
+res <- lapply(unique(OECD$gwn_host), function(x) modelfunction(OECD[!OECD$gwn_host %in% x, ] ))
+plot(density(unlist(res)))
+## 
+
+modelfunction <- function(data){
+  mod <- lm(log_fdi~ BIT +
+              host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+              ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+              Host_total_BITs + as.factor(gwn_host)+as.factor(Year), data = data)
+  mod <- coef(mod)[2]
+  return(mod)
+}
+res <- lapply(unique(OECD$gwn_source), function(x) modelfunction(OECD[!OECD$gwn_source %in% x, ] ))
+plot(density(unlist(res)), main="Jackknifing source countries")
+
+?density
+gwn_list
+gwn <- unique(OECD$gwn_source)
+countryname <- unique(OECD$REPORTING_COUNTRY)
+
+# omitting Cyprus makes BITs have the most negative effect (strongest).
+# omitting Portugal makes BITs have the weakest effect
+
+CYPRUS <- OECD %>% filter(REPORTING_COUNTRY=="Cyprus") 
+
+C <-lm(log_fdi~ BIT +
+         host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+         ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+         Host_total_BITs, data = CYPRUS)
+
+
+
+# A model which is not log-transformed
+
+logtest1 <- lm(mean_instock ~ BIT +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                 ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+                 Host_total_BITs + as.factor(gwn_host)+as.factor(Year), data = OECD)
+summary(logtest1)
+vcov_log1 <- cluster.vcov(logtest1, cbind(OECD$gwn_host, OECD$Year))
+logtest1$vcov <- vcov_log1
+robust_log1 <- sqrt(diag(logtest1$vcov))
+
+oecd_zero <- OECD %>% drop_na(mean_instock)
+
+oecd_zero$mean_instock[oecd_zero$mean_instock <= 0] <- 0.1
+
+oecd_zero <- oecd_zero %>% mutate(zero_log=log(mean_instock))
+
+
+logtest2 <- lm(zero_log ~ BIT +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                 ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+                 Host_total_BITs + as.factor(gwn_host)+as.factor(Year), data = oecd_zero)
+summary(logtest2)
+vcov_log2 <- cluster.vcov(logtest2, cbind(oecd_zero$gwn_host, oecd_zero$Year))
+logtest2$vcov <- vcov_log2
+robust_log2 <- sqrt(diag(logtest2$vcov))
+
+
+OECD_log <- OECD %>% filter(!(mean_instock <=0)) %>% 
+  mutate(na_log=log(mean_instock))
+
+logtest3 <- lm(na_log ~ BIT +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                 ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+                 Host_total_BITs + as.factor(gwn_host)+as.factor(Year), data = OECD_log)
+summary(logtest3)
+vcov_log3 <- cluster.vcov(logtest3, cbind(OECD_log$gwn_host, OECD_log$Year))
+logtest3$vcov <- vcov_log3 
+robust_log3 <- sqrt(diag(logtest3$vcov))
+
+
+stargazer(list(logtest1,logtest2, logtest3),
+          se=list(robust_log1,robust_log2 , robust_log3),
+          type="latex",
+          out="figures/logtest.tex",
+          title="Alternative log transformations",
+          dep.var.labels = "FDI instock",
+          covariate.labels = c ("BIT",
+                                "GDP Host, log t-1",
+                                "GDP per capita host, log t-1",
+                                "Inflation t-1",
+                                "GDP Source, log t-1",
+                                "Market size, log t-1",
+                                "Market ratio t-1",
+                                "DTT",
+                                "Host total BITs",
+                                "Property right ratio t-1"),
+          omit = c("Constant", "as.factor"),
+          omit.stat=c("ser","f"),
+          add.lines =list(c("Log-variation", "No log", "<=0 set to 0.1", "Normal log"),
+                          c("FE","Host", "Host","Host"),
+                          c("Year FE","Yes", "Yes", "Yes"),
+                          c("Clustered SE","Yes", "Yes", "Yes")))
+
+
+
+#### Modelling distribution and correlation plot ####
+
+ggplot(data=OECD, aes(mean_instock))+geom_histogram()
+
+skew_fdi <- skewness(OECD$mean_instock, na.rm=T) #5.193461
+skew_fdi <- skewness(OECD_log$na_log, na.rm=T) #-1.06
+
+kurtosis(OECD$mean_instock, na.rm=T) # 37.02796
+
+
+ggplot(data=foo, aes(log_fdi))+geom_histogram()
+skewness(OECD$log_fdi, na.rm=T) #-0.1424984
+kurtosis(OECD$log_fdi, na.rm=T) # 2.17952
+
+
+correlationM <- data.frame(oecd_prep$log_fdi, oecd_prep$BIT, oecd_prep$substantive, oecd_prep$host_gdp_log_lag, oecd_prep$host_gdppc_log_lag,
+                           oecd_prep$inflation_lag, oecd_prep$source_gdp_log_lag, oecd_prep$ln_market_size_log, oecd_prep$relative_market_size,
+                           oecd_prep$relative_property_rights_lag, oecd_prep$DTT, oecd_prep$Host_total_BITs)
+
+correlationM<-data.frame(oecd_prep[, c("log_fdi", "BIT", "substantive",
+                                       "host_gdp_log_lag", "host_gdppc_log_lag", 
+                                       "inflation_lag_log", "source_gdp_log_lag",
+                                       "ln_market_size_log", "relative_market_size", 
+                                       "relative_property_rights_lag", "DTT", "Host_total_BITs")])
+
+correlationM <- correlationM %>%  rename(FDI=oecd_prep.log_fdi, BITs=oecd_prep.BIT,Substantive=oecd_prep.substantive, Host_Inflation=oecd_prep.inflation_lag,
+                                         Source_GDP=oecd_prep.source_gdp_log_lag, Market_size=oecd_prep.ln_market_size_log,
+                                         relative_marketsize=oecd_prep.relative_market_size, 
+                                         Relative_popertyrights=oecd_prep.relative_property_rights_lag, DTT=oecd_prep.DTT,
+                                         Host_Tot_BITs=oecd_prep.Host_total_BITs)
+
+
+
+correlationM <- correlationM %>%  rename(host_GDP=oecd_prep.host_gdp_log_lag, Host_GDDPC=oecd_prep.host_gdppc_log_lag)
+
+correlationM <- correlationM %>% drop_na(c(relative_property_rights_lag, substantive))
+corma <- cor(correlationM)
+
+cormatrix <-round(cor(correlationM), digits = 3)
+
+corrplot<-corrplot(cormatrix, type = "upper", order = "hclust", 
+                   tl.col = "black", tl.srt = 45)
+save("figures/corrplot.png", width = 8, height = 5)
+
+stargazer(cormatrix,
+          type = "text",
+          #out = "figures/correlation_table.tex",
+          title = "Correlation",
+          digits = 3,
+          covariate.labels = c("FDI", "BIT", "Host GDP", "Host GDPPC",
+                               "Inflation", "Source GDP", "Market Size", "Relative Market size",
+                               "Relative property rights", "DTT", "Host total BITs"))
+
+
+
+
+## test the reverse relation
+reverse_glm <- glm (BIT ~log_fdi,
+                    data = oecd_full, family= binomial (link="logit"), y = TRUE)
+summary(reverse_glm)
+
+#### Random effects model ####
+modelRE<- plm(log_fdi~ BIT +
+                host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+              data= OECD,
+              index = c("gwn_host"),
+              model = "random")
+summary(modelRE)
+vcov_RE <- plm::vcovHC(modelRE, cluster = c("group"), type="HC3", method="arellano")
+robust_RE <- sqrt(diag(vcov_RE))
+
+modelRET<- plm(log_fdi~ BIT +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                 ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+               data= OECD,
+               index = c("Year"),
+               model = "random")
+summary(modelRET)
+vcov_RET <- plm::vcovHC(modelRET, cluster = c("group"), type="HC3", method="arellano")
+robust_RET <- sqrt(diag(vcov_RET))
+
+modelpool<- plm(log_fdi~ BIT +
+                  host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                  ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+ Host_total_BITs,
+                data= OECD,
+                index = c("gwn_host"),
+                model = "pooling",
+                effect = "twoways")
+summary(modelpool)
+vcov_pool <- plm::vcovHC(modelpool, cluster = c("group"), type="HC3", method="arellano")
+robust_pool <- sqrt(diag(vcov_pool))
+
+re2ways <-lmer(log_fdi~ BIT +
+                 host_gdp_log_lag + host_gdppc_log_lag + inflation_lag +source_gdp_log_lag+
+                 ln_market_size_log +relative_market_size+relative_property_rights_lag +DTT+
+                 Host_total_BITs + (1|gwn_host) + (1|Year), data = data)
+summary(re2ways)
+
+stargazer(list(modelRE, modelRET, modelpool, re2ways),
+          se=list(robust_RE, robust_RET, robust_pool, NULL ),
+          type="latex",
+          out="figures/alternative.tex",
+          title="Alternative regressions",
+          dep.var.labels = "FDI instock",
+          covariate.labels = c("BIT",
+                               "GDP Host, log t-1",
+                               "GDP per capita host, log t-1",
+                               "Inflation t-1",
+                               "GDP Source, log t-1",
+                               "Market size, log t-1",
+                               "Market ratio t-1",
+                               "DTT",
+                               "Host total BITs",
+                               "Property right ratio t-1"),
+          omit = c("as.factor"),
+          omit.stat=c("ser","f"),
+          add.lines =list(c("Type","Random-E", "Random-E", "Pooled OLS", "Mixed-effect"),
+                          c("Year Effect","No", "Yes" , "Yes", "Yes"),
+                          c("Unit Effect","Yes", "No" , "Yes", "Yes"),
+                          c("Clustered SE","Yes", "Yes", "Yes", "No")))
+
+
+#Sheet #8
+#### Descriptive statistics ####
+colnames(OECD)
+descriptive <- OECD %>%
+  ungroup() %>% 
+  select(log_fdi,
+         BIT, #independent 1
+         substantive, #independent 2
+         host_gdp_log_lag, host_gdppc_log_lag, inflation_lag_log, source_gdp_log_lag,
+         ln_market_size_log, relative_market_size, relative_property_rights_lag,
+         DTT, Host_total_BITs) #dummy DTT and sum host BITs
+
+summary(OECD$log_fdi)
+rd <- OECD %>% filter(log_fdi >=8.8)
+table(rd$BIT)
+
+bit_rd <- rd %>% filter(BIT==1)
+
+table(bit_rd$REPORTING_COUNTRY)
+table(bit_rd$PARTNER_COUNTRY)
+
+descriptive_statistics <- 
+  data.frame(OECD[, c("log_fdi", "BIT",  "substantive",
+                      "host_gdp_log_lag", "host_gdppc_log_lag", 
+                      "inflation_lag_log", "source_gdp_log_lag",
+                      "ln_market_size_log", "relative_market_size", 
+                      "relative_property_rights_lag", "DTT", "Host_total_BITs")])
+stargazer(descriptive_statistics,
+          type = "latex",
+          out = "figures/descriptive_table.tex",
+          title = "Descriptive Statistics",
+          digits = 3,
+          covariate.labels = c("FDI", "BIT", "Substantive", "Host GDP", "Host GDPPC",
+                               "Inflation", "Source GDP", "Market Size", "Relative Market size",
+                               "Relative property rights", "DTT", "Host total BITs"),
+          summary.stat = c("n", "min", "max", "mean", "median", "sd"),
+          font.size = "footnotesize")
+
+#Sheet #9
+#### Figures in theory section ####
+
+ntraeu <- read_excel("intra_eu.xlsx")
+
+nrow(intraeu) # 191 agreements
+str(intraeu)
+#  $ date : POSIXct, format: "1963-07-15" "1975-12-14"
+range(intraeu$date)
+# 1963-2009
+
+range(intraeu$termination_date)
+# 1996-2020
+
+# Number of BITs signed between EU members over timed (UNCTAD)
+# date 1963-2009
+# "1963-07-15 UTC" "2009-01-30 UTC"
+
+# Convert dates from ymd to 4-digit year to make it easier to aggregate
+## ex. nzd$date <- format(as.Date(nzd$date, format="%d/%m/%Y"),"%Y/%m/%d")
+
+intraeu$date <- format(as.Date(intraeu$date, format="%y/%m/%d"), "%Y")
+
+intraeu$termination_date <- format(as.Date(intraeu$termination_date, format="%y/%m/%d"), "%Y")
+
+# group by in force date
+group_by(intraeu, date)
+
+#Create a full length dataset with continous values 1963-2009
+
+year_continual <- as.data.frame(seq(1963, 2020))
+
+year_continual <- year_continual %>% rename(date = "seq(1963, 2020)")
+
+# As numeric
+year_continual$date <- as.numeric(year_continual$date)
+
+#year_continual$date <- as.Date(year_continual$date, format="%Y")
+
+
+## create new dataset only containing termination date
+
+term <- filter(intraeu, !is.na(termination_date))
+
+agg_term <- term %>% group_by(termination_date) %>% count()
+
+agg_term <- agg_term %>% rename(termination = n)
+
+agg_term <- agg_term %>% rename(date = termination_date)
+
+# cumulative freq. 
+#agg_term$tsum <- cumsum(agg_term$termination)
+
+
+## creates sorted number of agreements for each year for in force date
+agg_df <- intraeu %>% group_by(date) %>% count()
+
+agg_df <- agg_df %>% 
+  rename(
+    ratifications = n)
+
+
+## summarizes previous aggrements on cumulative frequencies
+#agg_df$csum <- cumsum(agg_df$ratifications)
+
+
+
+## Merge ratifications and terminations by year
+#treaties_year <- left_join(agg_df, agg_term, by = "date",
+#                          keep=T)
+
+treaties_year <- full_join(agg_df, agg_term, by="date")
+
+treaties_year$date <- as.numeric(treaties_year$date)
+
+# Merge together termination and ratification years with full length year
+#treaties_year_cont <- left_join(year_continual, treaties_year, by="date")
+
+treaties_cont <- left_join(year_continual, treaties_year, by="date")
+
+## 
+# treaties_year <- treaties_year  %>% mutate(termination=ifelse(is.na(termination),0,termination), 
+#                                           ratifications=ifelse(is.na(ratifications),0,ratifications),
+#                                           csum=ifelse(is.na(csum),0,csum),
+#                                           tsum=ifelse(is.na(tsum),0,tsum))
+
+treaties_cont <- treaties_cont  %>% mutate(termination=ifelse(is.na(termination),0,termination), 
+                                           ratifications=ifelse(is.na(ratifications),0,ratifications))
+
+## ## riktig ratification-termination 
+
+treaties_cont$csum <- cumsum(treaties_cont$ratifications)
+
+treaties_cont$tsum <- cumsum(treaties_cont$termination)
+
+treaties_cont <- treaties_cont  %>% mutate(csum=ifelse(is.na(csum),0,csum), 
+                                           tsum=ifelse(is.na(tsum),0,tsum))
+
+treaties_cont <- treaties_cont %>% mutate(rat_term=csum-tsum)
+
+
+#OOP
+# data <- data %<% group_by(year)%>% count ()
+# simplify the by year lubridate
+#Plot
+# Plot accension dates (exlude certain countries) skille intra-EU
+#data <- data%>% filter()
+
+# splitting the string variable along this pattern
+#strsplit
+
+## Geom_Line # Uten aggregert data
+#ggplot(data = intraeu, aes(x = date, y = bit))+
+geom_line(aes(group = 1))+
+  labs(x = "Year", y= "Number of BITs in force", title = "Development of Intra-EU BITs")+
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(angle=90, hjust=1))
+
+# Uten aggregert data intraeu
+ggplot(data = intraeu, aes(x = date, y = bit))+
+  geom_col()+
+  labs(x = "Year", y= "Number of BITs ratified", title = "Development of Intra-EU BITs")+
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(angle=90, hjust=1))
+
+## agg_df
+ggplot(data = agg_df, aes(x = date, y = ratifications))+
+  geom_col()+
+  labs(x = "Year", y= "Number of BITs ratified", title = "Development of Intra-EU BITs")+
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90, hjust=1))+
+  #  ggsave("bits_year_agg.png", width = 8, height = 5)
+  
+  ggplot(data = agg_df, aes(x = date, y = ratifications))+
+  geom_col()+
+  labs(x = "Year", y= "Number of BITs ratified", title = "Development of Intra-EU BITs")+
+  scale_y_continuous(breaks = waiver(), minor_breaks = c(1,25))+
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")+
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90, hjust=1))+
+  #ggsave("bits_year_agg.png", width = 8, height = 5)
+  
+  ggplot(data = agg_df, aes(x = date, y = csum))+
+  geom_col()+
+  labs(x = "Year", y= "Number of BITs ratified", title = "Cumulativ development of Intra-EU BITs")+
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(angle=90, hjust=1))+
+  # ggsave("bits_year_csum.png", width = 8, height = 5)
+  
+  
+  ## treaties_year_cont nyeste kumulativ minus terminations enkel
+  ggplot(data = treaties_cont, aes(x = date, y = rat_term))+
+  geom_col()+
+  labs(x = "Year", y= "Current number of BITs ratified", title = "Cumulativ development of Intra-EU BITs")+
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90, hjust=1))
+
+## Ferdig modell
+ggplot(data = treaties_cont, aes(x = date, y = rat_term))+
+  geom_col()+
+  labs(x = "Year", y= "Current number of BITs ratified", title = "Cumulativ development of Intra-EU BITs")+
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90, hjust = 1))+
+  scale_x_discrete(limits= c(seq(1963,2020)), guide = guide_axis(n.dodge = 1))+
+  scale_y_continuous(breaks=seq(0,200,30))+
+  ggsave("bits_year_csum.png", width = 8, height = 5)
+
+
+?guide=guide_axis
+?guide_axis
+
+
+# Ratified per year
+
+ggplot(data = treaties_cont, aes (x= date, y = ratifications))+
+  geom_col()+
+  labs(x = "Year", y= "BITs ratified anually", title = "BIT ratification by year")+
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90, hjust = 1))+
+  scale_x_discrete(limits= c(seq(1963,2020)), guide = guide_axis(n.dodge = 1))+
+  scale_y_continuous(breaks=seq(0,30,1))
+ggsave("bits_year_ratified.png", width = 8, height = 5)
+
+#terminated per year
+ggplot(data = treaties_cont, aes (x= date, y = termination))+
+  geom_col()+
+  coord_flip()+
+  labs(x = "Year", y= "BITs terminated anually", title = "BIT termination by year")+
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90, hjust = 1))+
+  xlim(1995, 2021)+
+  scale_y_continuous(breaks = seq(0,20,1))
+ggsave("bits_year_terminated.png", width = 8, height = 5)
+
+#### New figure ####
+isds <- read_excel("ISDS_intraeu.xlsx")
+
+# Arrange by years
+group_by(isds, year)
+
+# group cases by annual number of cases
+isds_year <- isds %>% group_by(year) %>% count()
+
+
+# isds_year$csum <- cumsum(isds_year$n)
+
+isds_year <- isds_year %>% rename(isds_cases = n)
+
+#Create a full length dataset with continous values 1994-2020
+
+isds_full <- as.data.frame(seq(1994, 2020))
+
+?as.data.frame
+
+isds_full <- isds_full %>% rename(year = "seq(1994, 2020)")
+
+# As numeric to make it mergeable
+isds_full$year <- as.numeric(isds_full$year)
+isds_year$year <- as.numeric(isds_year$year)
+
+## Merge timeline with isds-cases
+
+isds_comp <- left_join(isds_full, isds_year, by="year")
+
+## give all values NA = 0
+isds_comp <- isds_comp  %>% mutate(isds_cases=ifelse(is.na(isds_cases),0,isds_cases))
+
+## Create cumulative frequency column 
+
+isds_comp$isds_sum <- cumsum(isds_comp$isds_cases)
+
+
+#### Plots ####
+
+### annual cases x years
+ggplot(data = isds_comp, aes(x = year, y = isds_cases))+
+  geom_col()+
+  labs(x = "Year", y= "ISDS cases", title = "Annual ISDS cases between Member States")+
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=90, hjust=1))+
+  scale_x_discrete(limits= c(seq(1994,2020)), guide = guide_axis(n.dodge = 1))+
+  scale_y_continuous(breaks=seq(0,17))+
+  ggsave("isds_year_annual.png", width = 8, height = 5)
+
+### cumulative cases x years
+ggplot(data = isds_comp, aes(x = year, y = isds_sum))+
+  geom_col()+
+  labs(x = "Year", y= "ISDS cases", title = "Cumulative ISDS cases between Member States")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_x_discrete(limits= c(seq(1994,2020)), guide = guide_axis(n.dodge = 1))+
+  scale_y_continuous(breaks=seq(0,100,10))+
+  ggsave("isds_year_cumulative.png", width = 8, height = 5)
+
+
