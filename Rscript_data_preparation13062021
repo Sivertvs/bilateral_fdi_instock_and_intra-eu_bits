@@ -38,32 +38,31 @@ data <- select(data, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value, Flags, FLA
 #remove all identical measures (Inward FDI Stock AustriaAustria) # pre removal: 8,575
 data <- data %>% filter(Value != 0) # 1484 values removed 7,091 tot. (836 NA, and 648 0's by zero observations)
 
-## sort alpabethically
+## Sort alpabethically
 inward_stock <- with(data, data[order(REPORTING_COUNTRY, PARTNER_COUNTRY), ])
 
 
-##  Slovak Republic til Slovakia
+##  Rename Slovak Republic to Slovakia
 inward_stock$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", inward_stock$PARTNER_COUNTRY)
 inward_stock$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", inward_stock$REPORTING_COUNTRY)
-## create unique IDs for dyads
 
+## create unique IDs for dyads
 inward_stock_ID <- inward_stock %>%  mutate(ID = paste0(Year,"_",REPORTING_COUNTRY,"_",PARTNER_COUNTRY))
 length(unique(inward_stock_ID$ID))
 
 # Organize the dataset
-
 inward_stock_ID <- inward_stock_ID %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
 inward_stock_ID <- inward_stock_ID %>% rename(instock_rep_c1=Value) 
 
 
-# fjerne Austria_austria osv. Bare Austria-Austria og et tilfelle av Ireland_Ireland dette skjedde hos 9 observasjoner
+# Remove Austria_austria. 9 incidences of Austria-Austria Ireland_Ireland
 inward_stock_ID <- inward_stock_ID %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
 
-# er det noen som ikke er unike? Nei
+# Unique? Yes
 length(unique(inward_stock_ID$ID))
 
 
-#### KlargjÃ¸re OECD outward stock til merging med inward stock ####
+#### Prepare OECD outward stock for merging with inward stock ####
 colnames(OUTWARD_FDI_STOCKFDI_CTRY_ECO_HIST_26032021123928486)
 
 outward_stock <- select(OUTWARD_FDI_STOCKFDI_CTRY_ECO_HIST_26032021123928486, Year, `Reporting country`, `Partner country/territory`, Value, `Flag Codes`, Flags)
@@ -77,24 +76,22 @@ outward_stock <- with(outward_stock, outward_stock[order(`Reporting country`,`Pa
 colnames(outward_stock)
 outward_stock <- outward_stock %>%rename(REPORTING_COUNTRY=`Reporting country`, PARTNER_COUNTRY=`Partner country/territory`)
 
-## redo om Slovak Republic til Slovakia
+## redo Slovak Republic to Slovakia
 outward_stock$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", outward_stock$PARTNER_COUNTRY)
 outward_stock$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", outward_stock$REPORTING_COUNTRY)
+
 ## create unique IDs for dyads
 outward_stock_id <- outward_stock %>%  mutate(ID = paste0(Year,"_",REPORTING_COUNTRY,"_",PARTNER_COUNTRY))
 
 length(unique(outward_stock_id$ID))
 
 # Organize the dataset
-
 colnames(outward_stock_id)
-
 outward_stock_id <- outward_stock_id %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
 outward_stock_id <- outward_stock_id %>% rename(outstock_rep_c1=Value) 
 
 
-# fjerne Austria_austria osv. Bare to tilfeller Ireland_Ireland 
-
+# Remove duplicated observations. Two incidences of Ireland_Ireland 
 outward_stock_id <- outward_stock_id %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
 
 
@@ -115,12 +112,13 @@ f = Vectorize(f)
 OECD_stock <- OECD_stock %>% 
   mutate(BIT_ID = f(Year, REPORTING_COUNTRY, PARTNER_COUNTRY))
 
+#Decided to add the UK to the dataset after the intitial construction.
 #### Add UK values to OECD_stock ####
 UK_OUTWARD_2O015 <- read_csv("FDI_OECD/UK_OUTWARD_2O015.csv")
 UK_INWARD_2015 <- read_csv("FDI_OECD/UK_INWARD_2015.csv")
 
 
-# rename columns
+# Rename columns
 UK_OUTWARD_2O015 <- UK_OUTWARD_2O015   %>% rename(REPORTING_COUNTRY = `Reporting country`, PARTNER_COUNTRY = `Partner country/territory`,
                                                   FLAG_CODES = `Flag Codes`)
 UK_INWARD_2015 <- UK_INWARD_2015   %>% rename(REPORTING_COUNTRY = `Reporting country`, PARTNER_COUNTRY = `Partner country/territory`,
@@ -131,7 +129,7 @@ UK_OUTWARD_2O015 <- select(UK_OUTWARD_2O015, Year, REPORTING_COUNTRY, PARTNER_CO
 UK_INWARD_2015 <- UK_INWARD_2015 %>% select(COU, REPORTING_COUNTRY, COUNTERPART_AREA, PARTNER_COUNTRY, Year, Value, FLAG_CODES, Flags)
 UK_INWARD_2015 <- select(UK_INWARD_2015, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value, Flags, FLAG_CODES)
 
-#remove all identical measures
+# Remove all identical measures
 UK_OUTWARD_2O015 <- UK_OUTWARD_2O015 %>% filter(Value != 0) # 
 UK_INWARD_2015 <- UK_INWARD_2015 %>% filter(Value != 0) 
 
@@ -141,7 +139,7 @@ UK_OUTWARD_2O015 <- UK_OUTWARD_2O015 %>% filter(REPORTING_COUNTRY!=PARTNER_COUNT
 UK_INWARD_2015 <- with(UK_INWARD_2015, UK_INWARD_2015[order(REPORTING_COUNTRY, PARTNER_COUNTRY), ])
 UK_INWARD_2015 <- UK_INWARD_2015 %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
 
-# GjÃ¸r om Slovak Republic til Slovenia
+# Redo om Slovak Republic til Slovenia
 UK_INWARD_2015$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_INWARD_2015$PARTNER_COUNTRY)
 UK_INWARD_2015$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_INWARD_2015$REPORTING_COUNTRY)
 
@@ -159,7 +157,7 @@ UK_OUTWARD_2O015 <- UK_OUTWARD_2O015 %>% rename(outstock_rep_c1=Value)
 UK_INWARD_2015 <- UK_INWARD_2015 %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
 UK_INWARD_2015 <- UK_INWARD_2015 %>% rename(instock_rep_c1=Value)
 
-# er det noen som ikke er unike? Nei
+# Unique? YES
 length(unique(UK_INWARD_2015$ID))
 length(unique(UK_OUTWARD_2O015$ID))
 
@@ -197,7 +195,7 @@ UK_partner_outflow <- UK_partner_outflow %>% filter(REPORTING_COUNTRY!=PARTNER_C
 UK_partner_inflow <- with(UK_partner_inflow, UK_partner_inflow[order(REPORTING_COUNTRY, PARTNER_COUNTRY), ])
 UK_partner_inflow <- UK_partner_inflow %>% filter(REPORTING_COUNTRY!=PARTNER_COUNTRY)
 
-# GjÃ¸r om Slovak Republic til Slovenia
+# Redo Slovak Republic to Slovenia
 UK_partner_outflow$PARTNER_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_partner_outflow$PARTNER_COUNTRY)
 UK_partner_outflow$REPORTING_COUNTRY <- gsub("Slovak Republic", "Slovakia", UK_partner_outflow$REPORTING_COUNTRY)
 
@@ -216,7 +214,7 @@ UK_partner_outflow <- UK_partner_outflow %>% rename(outstock_rep_c1=Value)
 UK_partner_inflow <- UK_partner_inflow %>% select(ID, Year, REPORTING_COUNTRY, PARTNER_COUNTRY, Value)
 UK_partner_inflow <- UK_partner_inflow %>% rename(instock_rep_c1=Value)
 
-# er det noen som ikke er unike? Nei
+# Unique? Yes
 length(unique(UK_partner_inflow$ID))
 length(unique(UK_partner_outflow$ID))
 
@@ -357,8 +355,8 @@ OECD_stock_new <- bind_rows(OECD_stock_new, subset_nonreporting) #9,696
 
 length(unique(OECD_stock_new$ID))
 
-## Omit observations with Crotia prior to 2013, Bulgaria Romania prior to 2007
 
+## Omit observations with Crotia prior to 2013, Bulgaria Romania prior to 2007
 OECD_stock_new <- OECD_stock_new %>% filter(!(REPORTING_COUNTRY=="Croatia" & Year < 2013)) %>% # from 9696 to 9558 
   filter(!(PARTNER_COUNTRY=="Croatia" & Year < 2013)) #9558 to 9421
 OECD_stock_new <- OECD_stock_new %>% filter(!(REPORTING_COUNTRY %in% c("Bulgaria", "Romania") & Year < 2007|
@@ -720,7 +718,9 @@ DTT <- DTT  %>%
 merge_dtt <- DTT %>% ungroup() %>% 
   select(gwn_year_id, DTT)
 
+#Sheet #5
 #### Merging variables ####
+
 OECD # Dependent variable
 UNCTAD_BITs # Independent variable
 BIT_depth # control: depth of BITs
@@ -751,9 +751,6 @@ OECD <- OECD %>%
   mutate(gwn_year_id=f(Year,gwn_host, gwn_source))
 
 
-#Sheet #5
-#### MERGESHEET ####
-
 #### Economic
 
 OECD <- left_join(OECD, WDI_host, by=c("Year", "gwn_host"))
@@ -783,7 +780,6 @@ OECD <- OECD %>% # set all NA to 0 to show no DTT is in place
   replace_na(list(DTT=0))
 
 # A variable for property rights 2005-2018
-
 OECD <- left_join(OECD, prop_right_host, by= c("Year", "gwn_host"))  
 OECD <- left_join(OECD, prop_right_source, by= c("Year", "gwn_source"))
 
